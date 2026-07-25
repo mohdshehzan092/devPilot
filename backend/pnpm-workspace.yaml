@@ -1,0 +1,4 @@
+allowBuilds:
+  '@scarf/scarf': false
+  argon2: set this to true or false
+  unrs-resolver: false
