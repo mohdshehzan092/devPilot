@@ -54,7 +54,7 @@ export class Request {
   method!: RequestMethod;
 
   @Prop({
-    required: true,
+    default: "",
   })
   url!: string;
 

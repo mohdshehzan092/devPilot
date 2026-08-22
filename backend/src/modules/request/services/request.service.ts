@@ -16,6 +16,7 @@ export class RequestService {
   ) {}
 
   async createRequest(dto: CreateRequestDto, ownerId: Types.ObjectId) {
+    console.log("DTO =>", dto);
     const workspace = await this.workspaceRepository.existsByIdAndOwner(
       dto.workspaceId,
       ownerId,

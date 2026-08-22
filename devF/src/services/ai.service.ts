@@ -1,0 +1,31 @@
+import api from "../api/axios";
+
+export const generateBody = async (prompt: string) => {
+  const res = await api.post("/ai/generate-body", { prompt });
+  return res.data.data;
+};
+
+export const modifyBody = async (body: any, instruction: string) => {
+  const res = await api.post("/ai/modify-body", { body, instruction });
+  return res.data.data;
+};
+
+export const generateTests = async (response: any) => {
+  const res = await api.post("/ai/generate-tests", { response });
+  return res.data.data;
+};
+
+export const summarizeResponse = async (response: any) => {
+  const res = await api.post("/ai/summarize", { response });
+  return res.data.data;
+};
+
+export const autocomplete = async (text: string) => {
+  const res = await api.post("/ai/autocomplete", { text });
+  return res.data.data;
+};
+
+export const explainError = async (error: any) => {
+  const res = await api.post("/ai/explain-error", { error });
+  return res.data.data;
+};

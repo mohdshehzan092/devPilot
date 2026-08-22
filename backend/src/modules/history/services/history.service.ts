@@ -6,24 +6,35 @@ import { HistoryRepository } from '../repositories/history.repository';
 export class HistoryService {
   constructor(private readonly historyRepository: HistoryRepository) {}
 
-  async saveExecution(data: {
-    requestId: Types.ObjectId;
-    workspaceId: Types.ObjectId;
-    collectionId: Types.ObjectId;
-    ownerId: Types.ObjectId;
-    method: string;
-    url: string;
-    requestHeaders: Record<string, any>;
-    requestBody: any;
-    responseStatus: number;
-    statusText: string;
-    responseHeaders: Record<string, any>;
-    responseBody: any;
-    responseTime: number;
-    responseSize: number;
-    isError: boolean;
-    errorMessage?: string;
-  }) {
+async saveExecution(data: {
+  requestId: Types.ObjectId;
+  workspaceId: Types.ObjectId;
+  collectionId: Types.ObjectId;
+  ownerId: Types.ObjectId;
+
+  method: string;
+  url: string;
+
+  requestHeaders: Record<string, any>;
+  requestBody: any;
+
+  queryParams: any[];
+  pathParams: any[];
+
+  bodyType: string;
+  auth: any;
+  testScript: string;
+
+  responseStatus: number;
+  statusText: string;
+  responseHeaders: Record<string, any>;
+  responseBody: any;
+  responseTime: number;
+  responseSize: number;
+
+  isError: boolean;
+  errorMessage?: string;
+}) {
     return this.historyRepository.create({
       ...data,
       executedAt: new Date(),

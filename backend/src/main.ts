@@ -8,18 +8,23 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-
-  app.use(helmet());
+ app.use(cookieParser());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
   app.use(compression());
 
   app.enableCors({
-    origin: true,
-    withCredentials: true,
+    origin: "http://localhost:8080",
+    credentials: true,
   });
 
   app.setGlobalPrefix(configService.get<string>('app.apiPrefix')!);

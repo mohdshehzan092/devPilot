@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Types } from 'mongoose';
 
 import { RequestRepository } from 'src/modules/request/repositories/request.repository';
@@ -19,32 +23,79 @@ export class ExecutionService {
     private readonly testScriptService: TestScriptService,
   ) {}
 
-  private buildHeaders(request: any): Record<string, string> {
+private buildPathUrl(request: any, variables: Record<string, string>): string {
+  let url = request.url;
+
+  url = this.environmentVariableService.replaceVariables(url, variables);
+
+  if (!Array.isArray(request.pathParams)) return url;
+
+  // Parse URL to get port
+  let port = '';
+  try {
+    port = new URL(url).port;
+  } catch {}
+
+  for (const param of request.pathParams) {
+    if (!param?.enabled || !param?.key) continue;
+
+    if (port && param.key === port) continue;
+
+    if (/^\d+$/.test(param.key)) continue;
+
+    const placeholder = `:${param.key}`;
+    if (!url.includes(placeholder)) continue;
+
+    const value = this.environmentVariableService.replaceVariables(
+      String(param.value ?? ''),
+      variables,
+    );
+
+    url = url.replace(placeholder, encodeURIComponent(value));
+  }
+
+  return url;
+}
+
+  private buildHeaders(
+    request: any,
+  ): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    if (!request.headers) {
+    if (!Array.isArray(request.headers)) {
       return headers;
     }
 
     request.headers.forEach((header: any) => {
-      if (header.enabled && header.key && header.value) {
-        headers[header.key] = header.value;
+      if (
+        header?.enabled &&
+        header?.key &&
+        header?.value
+      ) {
+        headers[header.key] = String(header.value);
       }
     });
 
     return headers;
   }
 
-  private buildQueryParams(request: any): Record<string, string> {
+  private buildQueryParams(
+    request: any,
+  ): Record<string, string> {
     const params: Record<string, string> = {};
 
-    if (!request.queryParams) {
+    if (!Array.isArray(request.queryParams)) {
       return params;
     }
 
     request.queryParams.forEach((param: any) => {
-      if (param.enabled && param.key && param.value) {
-        params[param.key] = param.value;
+      if (
+        param?.enabled &&
+        param?.key &&
+        param?.value !== undefined &&
+        param?.value !== null
+      ) {
+        params[param.key] = String(param.value);
       }
     });
 
@@ -52,12 +103,22 @@ export class ExecutionService {
   }
 
   private buildBody(request: any) {
-    if (!request.body) {
+    if (
+      request.body === undefined ||
+      request.body === null ||
+      request.body === ''
+    ) {
       return undefined;
     }
 
     if (request.bodyType === 'JSON') {
-      return JSON.parse(request.body);
+      try {
+        return JSON.parse(request.body);
+      } catch {
+        throw new BadRequestException(
+          'Invalid JSON body',
+        );
+      }
     }
 
     return request.body;
@@ -67,17 +128,20 @@ export class ExecutionService {
     requestId: string,
     ownerId: Types.ObjectId,
   ) {
-    const request = await this.requestRepository.findForExecution(
-      requestId,
-      ownerId,
-    );
+    const request =
+      await this.requestRepository.findForExecution(
+        requestId,
+        ownerId,
+      );
 
     if (!request) {
-      throw new NotFoundException('Request not found');
+      throw new NotFoundException(
+        'Request not found',
+      );
     }
 
     
-    let variables: Record<string, string> = {};
+    const variables: Record<string, string> = {};
 
     if (request.environmentId) {
       const environment =
@@ -86,15 +150,22 @@ export class ExecutionService {
         );
 
       if (environment) {
-        environment.variables.forEach((item: any) => {
-          variables[item.key] = item.value;
-        });
+        environment.variables.forEach(
+          (item: any) => {
+            if (item?.key) {
+              variables[item.key] = String(
+                item.value ?? '',
+              );
+            }
+          },
+        );
       }
     }
 
     
-    // Build Request
-    const headers = this.buildHeaders(request);
+    const headers =
+      this.buildHeaders(request);
+
     Object.keys(headers).forEach((key) => {
       headers[key] =
         this.environmentVariableService.replaceVariables(
@@ -103,9 +174,16 @@ export class ExecutionService {
         );
     });
 
-    const params = this.buildQueryParams(request);
+    /**
+     * Query params
+     */
+    const params =
+      this.buildQueryParams(request);
 
-    const finalParams: Record<string, string> = {};
+    const finalParams: Record<
+      string,
+      string
+    > = {};
 
     Object.keys(params).forEach((key) => {
       finalParams[key] =
@@ -115,51 +193,69 @@ export class ExecutionService {
         );
     });
 
-    let data = this.buildBody(request);
+    /**
+     * Body
+     */
+    let data =
+      this.buildBody(request);
 
-    if (data) {
-      data = JSON.parse(
+    if (data !== undefined) {
+      const replacedBody =
         this.environmentVariableService.replaceVariables(
           JSON.stringify(data),
           variables,
-        ),
-      );
-    }
-    this.applyAuthorization(
-  request,
-  headers,
-  finalParams,
-  variables,
-);
+        );
 
+      try {
+        data = JSON.parse(replacedBody);
+      } catch {
+        throw new BadRequestException(
+          'Invalid JSON after variable replacement',
+        );
+      }
+    }
+
+    /**
+     * Authorization
+     */
+    this.applyAuthorization(
+      request,
+      headers,
+      finalParams,
+      variables,
+    );
+
+    
+    
 
     const url =
-      this.environmentVariableService.replaceVariables(
-        request.url,
+      this.buildPathUrl(
+        request,
         variables,
       );
 
+    
     try {
       const startTime = Date.now();
-      
+
       const response =
-  await this.httpClient.execute({
-    method: request.method,
-    url,
-    headers,
-    params: finalParams,
-    data,
-  });
+        await this.httpClient.execute({
+          method: request.method,
+          url,
+          headers,
+          params: finalParams,
+          data,
+        });
 
-const responseTime =
-  Date.now() - startTime;
+      const responseTime =
+        Date.now() - startTime;
 
-  const testResults =
-  await this.testScriptService.execute(
-    request.testScript,
-    response,
-    variables,
-  );
+      const testResults =
+        await this.testScriptService.execute(
+          request.testScript,
+          response,
+          variables,
+        );
 
       await this.historyService.saveExecution({
         requestId: request._id,
@@ -173,23 +269,40 @@ const responseTime =
         requestHeaders: headers,
         requestBody: data,
 
+        queryParams: request.queryParams,
+        pathParams: request.pathParams,
+
+        bodyType: request.bodyType,
+        auth: request.auth,
+        testScript: request.testScript,
+
         responseStatus: response.status,
         statusText: response.statusText,
         responseHeaders: response.headers,
         responseBody: response.data,
 
         responseTime,
-        responseSize: JSON.stringify(
-          response.data,
-        ).length,
+        responseSize:
+          JSON.stringify(
+            response.data,
+          ).length,
 
         isError: false,
       });
 
       return {
-  response: response.data,
-  tests: testResults,
-};
+        status: response.status,
+        headers: response.headers,
+        responseTime,
+
+        size: JSON.stringify(
+          response.data,
+        ).length,
+
+        response: response.data,
+
+        tests: testResults,
+      };
     } catch (error: any) {
       await this.historyService.saveExecution({
         requestId: request._id,
@@ -202,6 +315,13 @@ const responseTime =
 
         requestHeaders: headers,
         requestBody: data,
+
+        queryParams: request.queryParams,
+        pathParams: request.pathParams,
+
+        bodyType: request.bodyType,
+        auth: request.auth,
+        testScript: request.testScript,
 
         responseStatus:
           error.response?.status ?? 500,
@@ -217,9 +337,10 @@ const responseTime =
 
         responseTime: 0,
 
-        responseSize: JSON.stringify(
-          error.response?.data ?? {},
-        ).length,
+        responseSize:
+          JSON.stringify(
+            error.response?.data ?? {},
+          ).length,
 
         isError: true,
 
@@ -229,75 +350,80 @@ const responseTime =
       throw error;
     }
   }
+
   private applyAuthorization(
-  request: any,
-  headers: Record<string, string>,
-  params: Record<string, string>,
-  variables: Record<string, string>,
-) {
-   
-  if (!request.auth || !request.auth.type) {
-    return;
-  }
-
-  switch (request.auth.type) {
-    case 'BEARER': {
-       
-      const token =
-        this.environmentVariableService.replaceVariables(
-          request.auth.token ?? '',
-          variables,
-        );
-
-      headers['Authorization'] = `Bearer ${token}`;
-      break;
+    request: any,
+    headers: Record<string, string>,
+    params: Record<string, string>,
+    variables: Record<string, string>,
+  ) {
+    if (
+      !request.auth ||
+      !request.auth.type
+    ) {
+      return;
     }
 
-    case 'BASIC': {
-         
-      const username =
-        this.environmentVariableService.replaceVariables(
-          request.auth.username ?? '',
-          variables,
-        );
+    switch (request.auth.type) {
+      case 'BEARER': {
+        const token =
+          this.environmentVariableService.replaceVariables(
+            request.auth.token ?? '',
+            variables,
+          );
 
-      const password =
-        this.environmentVariableService.replaceVariables(
-          request.auth.password ?? '',
-          variables,
-        );
+        headers['Authorization'] =
+          `Bearer ${token}`;
 
-      headers['Authorization'] =
-        'Basic ' +
-        Buffer.from(`${username}:${password}`).toString('base64');
-      break;
-    }
-
-    case 'API_KEY': {
-      
-      const value =
-        this.environmentVariableService.replaceVariables(
-          request.auth.value ?? '',
-          variables,
-        );
-
-      if (request.auth.addTo === 'QUERY') {
-        if (!request.auth.key) {
-  break;
-}
-
-if (request.auth.addTo === 'QUERY') {
-  params[request.auth.key] = value;
-} else {
-  headers[request.auth.key] = value;
-}
-      } else {
-        headers[request.auth.key] = value;
+        break;
       }
 
-      break;
+      case 'BASIC': {
+        const username =
+          this.environmentVariableService.replaceVariables(
+            request.auth.username ?? '',
+            variables,
+          );
+
+        const password =
+          this.environmentVariableService.replaceVariables(
+            request.auth.password ?? '',
+            variables,
+          );
+
+        headers['Authorization'] =
+          'Basic ' +
+          Buffer.from(
+            `${username}:${password}`,
+          ).toString('base64');
+
+        break;
+      }
+
+      case 'API_KEY': {
+        const value =
+          this.environmentVariableService.replaceVariables(
+            request.auth.value ?? '',
+            variables,
+          );
+
+        const key =
+          request.auth.key;
+
+        if (!key) {
+          break;
+        }
+
+        if (
+          request.auth.addTo === 'QUERY'
+        ) {
+          params[key] = value;
+        } else {
+          headers[key] = value;
+        }
+
+        break;
+      }
     }
   }
-}
-
 }

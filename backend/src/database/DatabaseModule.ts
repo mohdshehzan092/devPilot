@@ -19,7 +19,7 @@ import { MongooseModule } from '@nestjs/mongoose';
           });
 
           connection.on('disconnected', () => {
-            console.log('🟡 MongoDB Disconnected');
+            console.log('🟡 MongoDB Connection Closed (Server Reinstated/Stopped)');
           });
 
           connection.on('error', (error) => {

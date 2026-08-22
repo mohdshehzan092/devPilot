@@ -18,14 +18,26 @@ export class ExecutionController {
     private readonly executionService: ExecutionService,
   ) {}
 
-  @Post('create-execution/:requestId')
-  execute(
-    @Param('requestId') requestId: string,
-    @CurrentUser() user: any,
-  ) {
-    return this.executionService.executeRequest(
-      requestId,
-      new Types.ObjectId(user._id),
-    );
+  @Post("create-execution/:requestId")
+async execute(
+  @Param("requestId") requestId: string,
+  @CurrentUser() user: any,
+) {
+  try {
+    const result =
+      await this.executionService.executeRequest(
+        requestId,
+        new Types.ObjectId(user._id),
+      );
+
+    
+
+    return result;
+  } catch (e) {
+    
+    console.log(e);
+
+    throw e;
   }
+}
 }

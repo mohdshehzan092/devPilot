@@ -19,7 +19,9 @@ export class WorkspaceController {
   createWorkspace(
     @Body() dto: CreateWorkspaceDto,
     @CurrentUser() user: any,
+    
   ) {
+    
     return this.workspaceService.createWorkspace(
         dto,
         new Types.ObjectId(user._id),

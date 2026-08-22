@@ -12,25 +12,28 @@ export class AiService {
     });
   }
 
-  async generateBody(prompt: string) {
-    const completion = await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+async generateBody(prompt: string) {
+  
 
+  try {
+    const completion = await this.groq.chat.completions.create({
+      model:  "openai/gpt-oss-20b",
       messages: [
         {
           role: 'system',
-          content:
-            'You are an API request body generator. Return only valid JSON.',
+          content: 'You are an API request body generator. Return only valid JSON.',
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-
       temperature: 0.2,
     });
-    const content = completion.choices[0].message.content ?? '';
+
+ 
+
+    const content = completion.choices[0]?.message?.content ?? '';
 
     const cleaned = content
       .replace(/```json/g, '')
@@ -40,11 +43,16 @@ export class AiService {
     return {
       body: cleaned,
     };
+  } catch (error: any) {
+    console.error("🔥 GROQ ERROR");
+    throw error;
   }
-  async summarize(response: any) {
+}
+
+async summarize(response: any) {
   const completion =
     await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model:  "openai/gpt-oss-20b",
 
       messages: [
         {
@@ -91,7 +99,7 @@ User information returned
 async generateTests(response: any) {
   const completion =
     await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model:  "openai/gpt-oss-20b",
 
       messages: [
         {
@@ -162,7 +170,7 @@ Return JavaScript code only.
 async autocomplete(text: string) {
   const completion =
     await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model:  "openai/gpt-oss-20b",
 
       messages: [
         {
@@ -205,7 +213,7 @@ async modifyBody(
 ) {
   const completion =
     await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model:  "openai/gpt-oss-20b",
 
       messages: [
         {
@@ -249,7 +257,7 @@ ${instruction}
 async explainError(error: any) {
   const completion =
     await this.groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model:  "openai/gpt-oss-20b",
 
       messages: [
         {

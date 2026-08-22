@@ -111,6 +111,33 @@ export class History {
     default: null,
   })
   deletedAt!: Date;
+  @Prop({
+  type: Array,
+  default: [],
+})
+queryParams!: any[];
+
+@Prop({
+  type: Array,
+  default: [],
+})
+pathParams!: any[];
+
+@Prop({
+  default: "NONE",
+})
+bodyType!: string;
+
+@Prop({
+  type: Object,
+  default: {},
+})
+auth: any;
+
+@Prop({
+  default: "",
+})
+testScript!: string;
 }
 
 export const HistorySchema = SchemaFactory.createForClass(History);

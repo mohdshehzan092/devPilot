@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Environment, EnvironmentDocument } from 'src/modules/environment/schemas/environment.schema';
+import {
+  Environment,
+  EnvironmentDocument,
+} from 'src/modules/environment/schemas/environment.schema';
 import { Request, RequestDocument } from '../schemas/request.schema';
 
 @Injectable()
@@ -14,7 +17,13 @@ export class RequestRepository {
   ) {}
 
   async create(data: Partial<Request>) {
-    return this.requestModel.create(data);
+    try {
+      const doc = await this.requestModel.create(data);
+
+      return doc;
+    } catch (e) {
+      console.log(e);
+    }
   }
   async findByIdAndOwner(requestId: string, ownerId: Types.ObjectId) {
     return this.requestModel.findOne({
@@ -83,21 +92,17 @@ export class RequestRepository {
       },
     );
   }
-  async findForExecution(
-  requestId: string,
-  ownerId: Types.ObjectId,
-) {
-  return this.requestModel.findOne({
-    _id: requestId,
-    ownerId,
-    isDeleted: false,
-  });
-}
-async findById(id: string) {
-  return this.environmentModel.findOne({
-    _id: id,
-    isDeleted: false,
-  });
-}
-
+  async findForExecution(requestId: string, ownerId: Types.ObjectId) {
+    return this.requestModel.findOne({
+      _id: requestId,
+      ownerId,
+      isDeleted: false,
+    });
+  }
+  async findById(id: string) {
+    return this.environmentModel.findOne({
+      _id: id,
+      isDeleted: false,
+    });
+  }
 }

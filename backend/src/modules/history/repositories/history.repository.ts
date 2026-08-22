@@ -18,20 +18,24 @@ export class HistoryRepository {
     return this.historyModel.create(data);
   }
 
-  async findAllByOwner(ownerId: Types.ObjectId) {
+async findAllByOwner(ownerId: Types.ObjectId) {
   return this.historyModel
-    .find({ ownerId })
+    .find({
+      ownerId,
+      isDeleted: false,
+    })
     .sort({ createdAt: -1 })
     .lean();
 }
 
-  async findByIdAndOwner(
+ async findByIdAndOwner(
   historyId: string,
   ownerId: Types.ObjectId,
 ) {
   return this.historyModel.findOne({
     _id: historyId,
     ownerId,
+    isDeleted: false,
   });
 }
 
